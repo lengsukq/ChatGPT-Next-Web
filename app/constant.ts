@@ -221,7 +221,12 @@ export const ByteDance = {
 
 export const Alibaba = {
   ExampleEndpoint: ALIBABA_BASE_URL,
-  ChatPath: "v1/services/aigc/text-generation/generation",
+  ChatPath: (modelName: string) => {
+    if (modelName.includes("vl") || modelName.includes("omni")) {
+      return "v1/services/aigc/multimodal-generation/generation";
+    }
+    return `v1/services/aigc/text-generation/generation`;
+  },
 };
 
 export const Tencent = {
@@ -258,6 +263,7 @@ export const ChatGLM = {
 export const SiliconFlow = {
   ExampleEndpoint: SILICONFLOW_BASE_URL,
   ChatPath: "v1/chat/completions",
+  ListModelPath: "v1/models?&sub_type=chat",
 };
 
 export const DEFAULT_INPUT_TEMPLATE = `{{input}}`; // input / time / model / lang
@@ -462,6 +468,7 @@ export const VISION_MODEL_REGEXES = [
   /gpt-4-turbo(?!.*preview)/, // Matches "gpt-4-turbo" but not "gpt-4-turbo-preview"
   /^dall-e-3$/, // Matches exactly "dall-e-3"
   /glm-4v/,
+  /vl/i,
 ];
 
 export const EXCLUDE_VISION_MODEL_REGEXES = [/claude-3-5-haiku-20241022/];
@@ -533,6 +540,8 @@ const anthropicModels = [
   "claude-3-5-sonnet-20240620",
   "claude-3-5-sonnet-20241022",
   "claude-3-5-sonnet-latest",
+  "claude-3-7-sonnet-20250219",
+  "claude-3-7-sonnet-latest",
 ];
 
 const baiduModels = [
@@ -566,6 +575,9 @@ const alibabaModes = [
   "qwen-max-0403",
   "qwen-max-0107",
   "qwen-max-longcontext",
+  "qwen-omni-turbo",
+  "qwen-vl-plus",
+  "qwen-vl-max",
 ];
 
 const tencentModels = [
@@ -814,5 +826,5 @@ export const internalAllowedWebDavEndpoints = [
 
 export const DEFAULT_GA_ID = "G-89WN60ZK2E";
 
-export const SAAS_CHAT_URL = "https://nextchat.dev/chat";
-export const SAAS_CHAT_UTM_URL = "https://nextchat.dev/chat?utm=github";
+export const SAAS_CHAT_URL = "https://nextchat.club";
+export const SAAS_CHAT_UTM_URL = "https://nextchat.club?utm=github";

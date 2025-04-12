@@ -1,12 +1,6 @@
 "use client";
 // azure and openai, using same models. so using same LLMApi.
-import {
-  ApiPath,
-  DEEPSEEK_BASE_URL,
-  DeepSeek,
-  REQUEST_TIMEOUT_MS,
-  REQUEST_TIMEOUT_MS_FOR_THINKING,
-} from "@/app/constant";
+import { ApiPath, DEEPSEEK_BASE_URL, DeepSeek } from "@/app/constant";
 import {
   useAccessStore,
   useAppConfig,
@@ -26,6 +20,7 @@ import { getClientConfig } from "@/app/config/client";
 import {
   getMessageTextContent,
   getMessageTextContentWithoutThinking,
+  getTimeoutMSByModel,
 } from "@/app/utils";
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
@@ -80,6 +75,25 @@ export class DeepSeekApi implements LLMApi {
       }
     }
 
+    // 检测并修复消息顺序，确保除system外的第一个消息是user
+    const filteredMessages: ChatOptions["messages"] = [];
+    let hasFoundFirstUser = false;
+
+    for (const msg of messages) {
+      if (msg.role === "system") {
+        // Keep all system messages
+        filteredMessages.push(msg);
+      } else if (msg.role === "user") {
+        // User message directly added
+        filteredMessages.push(msg);
+        hasFoundFirstUser = true;
+      } else if (hasFoundFirstUser) {
+        // After finding the first user message, all subsequent non-system messages are retained.
+        filteredMessages.push(msg);
+      }
+      // If hasFoundFirstUser is false and it is not a system message, it will be skipped.
+    }
+
     const modelConfig = {
       ...useAppConfig.getState().modelConfig,
       ...useChatStore.getState().currentSession().mask.modelConfig,
@@ -90,7 +104,7 @@ export class DeepSeekApi implements LLMApi {
     };
 
     const requestPayload: RequestPayload = {
-      messages,
+      messages: filteredMessages,
       stream: options.config.stream,
       model: modelConfig.model,
       temperature: modelConfig.temperature,
@@ -116,16 +130,10 @@ export class DeepSeekApi implements LLMApi {
         headers: getHeaders(),
       };
 
-      // console.log(chatPayload);
-
-      const isR1 =
-        options.config.model.endsWith("-reasoner") ||
-        options.config.model.endsWith("-r1");
-
       // make a fetch request
       const requestTimeoutId = setTimeout(
         () => controller.abort(),
-        isR1 ? REQUEST_TIMEOUT_MS_FOR_THINKING : REQUEST_TIMEOUT_MS,
+        getTimeoutMSByModel(options.config.model),
       );
 
       if (shouldStream) {
@@ -176,8 +184,8 @@ export class DeepSeekApi implements LLMApi {
 
             // Skip if both content and reasoning_content are empty or null
             if (
-              (!reasoning || reasoning.trim().length === 0) &&
-              (!content || content.trim().length === 0)
+              (!reasoning || reasoning.length === 0) &&
+              (!content || content.length === 0)
             ) {
               return {
                 isThinking: false,
@@ -185,12 +193,12 @@ export class DeepSeekApi implements LLMApi {
               };
             }
 
-            if (reasoning && reasoning.trim().length > 0) {
+            if (reasoning && reasoning.length > 0) {
               return {
                 isThinking: true,
                 content: reasoning,
               };
-            } else if (content && content.trim().length > 0) {
+            } else if (content && content.length > 0) {
               return {
                 isThinking: false,
                 content: content,
